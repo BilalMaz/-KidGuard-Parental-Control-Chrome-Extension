@@ -114,18 +114,9 @@ Click the **🔒 Lock** button in the header — the popup requires the parent p
 ---
 
 ## 📁 File Structure
-kidguard/
-├── manifest.json       # Extension config (Manifest V3)
-├── background.js       # Service worker — website blocking, video interception
-├── content.js          # YouTube content script — keywords, genres, feed hiding
-├── popup.html          # Parent control panel UI
-├── popup.js            # Popup logic — auth, keywords, genres, websites
-├── blocked.html        # Block page shown to child
-├── blocked.js          # Block page logic (external file, CSP safe)
-└── icons/
-├── icon16.png
-├── icon48.png
-└── icon128.png
+
+<img src="Screens/5.jpg" width="300"/>
+
 
 ---
 
