@@ -2,6 +2,7 @@
 
 A powerful, password-protected Chrome extension that gives parents full control over their child's browsing experience — blocking inappropriate YouTube content, entire websites, and content genres.
 
+<a href="https://www.producthunt.com/products/kidguard-parental-control?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-kidguard-parental-control" target="_blank" rel="noopener noreferrer"><img alt=" KidGuard — Parental Control - Better Control | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1116112&amp;theme=neutral&amp;t=1775379361851"></a>
 ---
 # Project Screenshots
 
