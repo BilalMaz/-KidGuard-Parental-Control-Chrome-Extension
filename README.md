@@ -3,6 +3,18 @@
 A powerful, password-protected Chrome extension that gives parents full control over their child's browsing experience — blocking inappropriate YouTube content, entire websites, and content genres.
 
 ---
+# Project Screenshots
+
+<table>
+  <tr>
+    <td><img src="Screens/1.png" width="300"/></td>
+    <td><img src="Screens/2.png" width="300"/></td>
+  </tr>
+  <tr>
+    <td><img src="Screens/3.png" width="300"/></td>
+    <td><img src="Screens/4.png" width="300"/></td>
+  </tr>
+</table>
 
 ## ✨ Features
 
