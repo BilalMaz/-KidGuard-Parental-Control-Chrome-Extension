@@ -9,9 +9,9 @@ A powerful, password-protected Chrome extension that gives parents full control 
   <tr>
     <td><img src="Screens/1.jpg" width="300"/></td>
     <td><img src="Screens/2.jpg" width="300"/></td>
+    <td><img src="Screens/3.jpg" width="300"/></td>
   </tr>
   <tr>
-    <td><img src="Screens/3.jpg" width="300"/></td>
     <td><img src="Screens/4.jpg" width="300"/></td>
   </tr>
   <tr>
