@@ -101,3 +101,42 @@ Click the **🔒 Lock** button in the header — the popup requires the parent p
 ---
 
 ## 📁 File Structure
+kidguard/
+├── manifest.json       # Extension config (Manifest V3)
+├── background.js       # Service worker — website blocking, video interception
+├── content.js          # YouTube content script — keywords, genres, feed hiding
+├── popup.html          # Parent control panel UI
+├── popup.js            # Popup logic — auth, keywords, genres, websites
+├── blocked.html        # Block page shown to child
+├── blocked.js          # Block page logic (external file, CSP safe)
+└── icons/
+├── icon16.png
+├── icon48.png
+└── icon128.png
+
+---
+
+## ⚠️ Limitations
+
+- Works on **Google Chrome** and **Microsoft Edge** (Chromium-based browsers only)
+- YouTube's UI changes frequently — genre and feed card detection may need updates over time
+- A determined teenager with Developer Mode access could remove the extension — for full enforcement use Chrome managed policies via Windows Group Policy
+- Does not block YouTube content loaded inside iframes on third-party sites
+
+---
+
+## 🔒 Privacy
+
+- No data is ever sent to any external server
+- All settings (keywords, genres, blocked sites, password hash) are stored locally using Chrome's `storage.sync` API
+- The parent password is hashed with SHA-256 before storage and cannot be recovered
+
+---
+
+## 📄 License
+
+MIT License — free to use, modify, and distribute.
+
+---
+
+*Built with ❤️ for parents who want simple, effective browser controls without complexity.*
