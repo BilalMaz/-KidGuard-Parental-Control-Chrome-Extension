@@ -7,12 +7,15 @@ A powerful, password-protected Chrome extension that gives parents full control 
 
 <table>
   <tr>
-    <td><img src="Screens/1.png" width="300"/></td>
-    <td><img src="Screens/2.png" width="300"/></td>
+    <td><img src="Screens/1.jpg" width="300"/></td>
+    <td><img src="Screens/2.jpg" width="300"/></td>
   </tr>
   <tr>
-    <td><img src="Screens/3.png" width="300"/></td>
-    <td><img src="Screens/4.png" width="300"/></td>
+    <td><img src="Screens/3.jpg" width="300"/></td>
+    <td><img src="Screens/4.jpg" width="300"/></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="Screens/Login screen.jpg" width="300"/></td>
   </tr>
 </table>
 
