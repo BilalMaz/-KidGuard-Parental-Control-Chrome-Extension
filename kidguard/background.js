@@ -9,6 +9,7 @@ chrome.runtime.onInstalled.addListener(() => {
     if (r.enabled === undefined)  chrome.storage.sync.set({ enabled: true });
     if (!r.siteRules)             chrome.storage.sync.set({ siteRules: [] });
     if (!r.blockedGenres)         chrome.storage.sync.set({ blockedGenres: [] });
+    if (!r.timeLimits)            chrome.storage.sync.set({ timeLimits: [] });
   });
 });
 
@@ -195,4 +196,130 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
   return true;
+});
+
+// ═══════════════════════════════════════════════════════════════
+// SCREEN TIME — track usage per site and enforce daily limits
+// ═══════════════════════════════════════════════════════════════
+
+const activeTabTimers = new Map(); // tabId → { url, startTime }
+
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+function usageKey(url) { return 'usage_' + url; }
+
+function urlToHost(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+
+async function getUsedMins(url) {
+  return new Promise(resolve => {
+    chrome.storage.sync.get([usageKey(url)], data => {
+      const rec = data[usageKey(url)];
+      resolve((!rec || rec.date !== todayKey()) ? 0 : (rec.mins || 0));
+    });
+  });
+}
+
+async function addUsedMins(url, mins) {
+  const current = await getUsedMins(url);
+  const updated = current + mins;
+  return new Promise(resolve => {
+    const obj = {};
+    obj[usageKey(url)] = { date: todayKey(), mins: updated };
+    chrome.storage.sync.set(obj, () => resolve(updated));
+  });
+}
+
+async function findTimeLimitRule(url) {
+  return new Promise(resolve => {
+    chrome.storage.sync.get(['timeLimits', 'enabled'], data => {
+      if (!data.enabled) { resolve(null); return; }
+      const host = urlToHost(url);
+      const rule = (data.timeLimits || []).find(r => host === r.url || host.endsWith('.' + r.url));
+      resolve(rule || null);
+    });
+  });
+}
+
+async function checkAndEnforceLimit(tabId, url) {
+  if (!url || !url.startsWith('http')) return;
+  if (url.startsWith(chrome.runtime.getURL(''))) return;
+  const rule = await findTimeLimitRule(url);
+  if (!rule) return;
+  const usedMins = await getUsedMins(rule.url);
+  if (usedMins >= rule.limitMins) {
+    chrome.tabs.update(tabId, {
+      url: chrome.runtime.getURL('blocked.html') +
+           '?site=' + encodeURIComponent(rule.url) +
+           '&reason=timelimit' +
+           '&used=' + encodeURIComponent(Math.round(usedMins)) +
+           '&limit=' + encodeURIComponent(rule.limitMins)
+    });
+  }
+}
+
+function startTimer(tabId, url) {
+  stopTimer(tabId);
+  if (!url || !url.startsWith('http')) return;
+  activeTabTimers.set(tabId, { url, startTime: Date.now() });
+}
+
+async function stopTimer(tabId) {
+  const rec = activeTabTimers.get(tabId);
+  if (!rec) return;
+  activeTabTimers.delete(tabId);
+  const elapsedMins = (Date.now() - rec.startTime) / 60000;
+  if (elapsedMins < 0.1) return;
+  const rule = await findTimeLimitRule(rec.url);
+  if (!rule) return;
+  const newTotal = await addUsedMins(rule.url, elapsedMins);
+  if (newTotal >= rule.limitMins) {
+    chrome.tabs.query({}, tabs => {
+      tabs.forEach(tab => {
+        if (tab.url && urlToHost(tab.url) === rule.url) checkAndEnforceLimit(tab.id, tab.url);
+      });
+    });
+  }
+}
+
+// Track tab activation
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  activeTabTimers.forEach((_, tid) => { if (tid !== tabId) stopTimer(tid); });
+  chrome.tabs.get(tabId, tab => {
+    if (tab?.url) { checkAndEnforceLimit(tabId, tab.url); startTimer(tabId, tab.url); }
+  });
+});
+
+// Track navigation completions
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    stopTimer(tabId);
+    if (!tab.url.includes('youtube.com')) { // YouTube handled by webNavigation
+      checkAndEnforceLimit(tabId, tab.url);
+    }
+    startTimer(tabId, tab.url);
+  }
+});
+
+// Save time when tab closes
+chrome.tabs.onRemoved.addListener(tabId => stopTimer(tabId));
+
+// Save time when window loses focus
+chrome.windows.onFocusChanged.addListener(windowId => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    activeTabTimers.forEach((_, tid) => stopTimer(tid));
+  }
+});
+
+// Handle RESET_USAGE message from popup
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'RESET_USAGE') {
+    const obj = {};
+    obj[usageKey(msg.url)] = { date: todayKey(), mins: 0 };
+    chrome.storage.sync.set(obj, () => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === 'APPLY_TIME_LIMITS') {
+    sendResponse({ ok: true });
+  }
 });

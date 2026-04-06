@@ -43,6 +43,20 @@
     tagEl.textContent    = site || 'This website';
     reasonEl.textContent = 'This website is not on your approved list.\nOnly allowed websites can be visited.\nAsk a parent or guardian for access.';
 
+  } else if (reason === 'timelimit') {
+    // Daily time limit reached
+    var used  = params.get('used')  || '?';
+    var limit = params.get('limit') || '?';
+    function fmtMins(m) {
+      m = parseInt(m) || 0;
+      var h = Math.floor(m/60), mn = m%60;
+      return h > 0 ? (mn > 0 ? h+'h '+mn+'m' : h+'h') : mn+'m';
+    }
+    titleEl.textContent  = "⏱ Time's Up!";
+    tagEl.textContent    = site || 'This website';
+    reasonEl.textContent = 'You have used ' + fmtMins(used) + ' on this site today.\nYour daily limit of ' + fmtMins(limit) + ' has been reached.\n\nCome back tomorrow or ask a parent to reset your time.';
+    btnHome.textContent  = '🏠 Go to Google';
+
   } else if (site) {
     // Blocked by site rule
     titleEl.textContent  = 'Website Blocked';

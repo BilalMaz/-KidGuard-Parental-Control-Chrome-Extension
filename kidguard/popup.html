@@ -132,6 +132,42 @@ body{width:400px;background:var(--bg);color:var(--text);font-family:var(--font);
 .toast.ok{border-color:var(--green);color:var(--green)}
 .toast.err{border-color:var(--red);color:var(--red)}
 .toast.warn{border-color:var(--amber);color:var(--amber)}
+
+/* SCREEN TIME */
+.st-card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:13px 14px;margin-bottom:9px}
+.st-card-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.st-site-icon{width:28px;height:28px;border-radius:7px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;overflow:hidden}
+.st-site-icon img{width:100%;height:100%;object-fit:contain}
+.st-site-name{font-family:var(--mono);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-del{width:22px;height:22px;border-radius:5px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.st-del:hover{border-color:var(--red);color:var(--red)}
+.st-progress-wrap{margin-bottom:7px}
+.st-progress-bar{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.st-progress-fill{height:100%;border-radius:4px;transition:width .4s,background .3s}
+.st-progress-labels{display:flex;justify-content:space-between;margin-top:4px}
+.st-progress-used{font-size:10px;font-weight:600}
+.st-progress-limit{font-size:10px;color:var(--muted)}
+.st-limit-row{display:flex;align-items:center;gap:7px}
+.st-limit-label{font-size:11px;color:var(--muted);flex-shrink:0}
+.st-limit-input{width:56px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 8px;outline:none;text-align:center;transition:border-color .2s}
+.st-limit-input:focus{border-color:var(--amber)}
+.st-limit-unit{font-size:11px;color:var(--muted)}
+.st-save-btn{background:var(--amber);color:#0a0700;border:none;border-radius:6px;padding:5px 11px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;margin-left:auto}
+.st-save-btn:hover{background:#fbbf24}
+.st-status-ok{color:var(--green)}
+.st-status-warn{color:var(--amber)}
+.st-status-over{color:var(--red)}
+.st-reset-btn{font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:0}
+.st-reset-btn:hover{color:var(--text)}
+.st-add-row{display:flex;gap:6px;margin-bottom:11px}
+.st-add-input{flex:1;background:var(--s1);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 11px;outline:none;transition:border-color .2s}
+.st-add-input:focus{border-color:var(--amber)}
+.st-add-input::placeholder{color:var(--dim);font-family:var(--font)}
+.st-add-btn{background:var(--amber);color:#0a0700;border:none;border-radius:8px;padding:0 14px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+.st-add-btn:hover{background:#fbbf24;transform:translateY(-1px)}
+.st-presets{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+.st-chip{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--muted);cursor:pointer;transition:all .2s;font-family:var(--mono)}
+.st-chip:hover{border-color:var(--amber);color:var(--amber);background:rgba(245,158,11,.06)}
 </style>
 </head>
 <body>
@@ -192,6 +228,7 @@ body{width:400px;background:var(--bg);color:var(--text);font-family:var(--font);
     <div class="tab active" data-tab="keywords">🔍 Keywords</div>
     <div class="tab" data-tab="genres">🎬 Genres</div>
     <div class="tab" data-tab="websites">🌐 Websites</div>
+    <div class="tab" data-tab="screentime">⏱ Time</div>
   </div>
 
   <!-- ── TAB: KEYWORDS ── -->
@@ -257,6 +294,26 @@ body{width:400px;background:var(--bg);color:var(--text);font-family:var(--font);
     <div class="presets" id="genre-presets"></div>
     <div class="sec-label">Blocked Genres (<span id="genre-count">0</span>)</div>
     <div class="card-list" id="genre-list"></div>
+  </div>
+
+
+  <!-- ── TAB: SCREEN TIME ── -->
+  <div id="tab-screentime" class="tab-body">
+    <div class="info-box" style="border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.05);color:rgba(255,220,100,.85)">
+      Set daily time limits for websites. When the limit is reached, the site is blocked automatically until midnight.
+    </div>
+
+    <div class="sec-label">Quick Add Sites</div>
+    <div class="st-presets" id="st-presets-row"></div>
+
+    <div class="sec-label">Add Website Time Limit</div>
+    <div class="st-add-row">
+      <input type="text" class="st-add-input" id="st-site-input" placeholder="e.g. youtube.com, tiktok.com"/>
+      <button class="st-add-btn" id="st-add-btn">+ Add</button>
+    </div>
+
+    <div class="sec-label">Active Limits (<span id="st-count">0</span>)</div>
+    <div id="st-list"></div>
   </div>
 
 </div><!-- /screen-main -->

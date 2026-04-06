@@ -14,6 +14,7 @@ function save(obj)  { return new Promise(r => chrome.storage.sync.set(obj, r)); 
 let keywords      = [];
 let siteRules     = [];   // [{ url, mode: 'block'|'allow' }]
 let blockedGenres = [];   // ['Gaming', 'Horror', ...]
+let timeLimits    = [];   // [{ url, limitMins, usedMins }]
 let siteMode      = 'block';
 let enabled       = true;
 
@@ -347,17 +348,19 @@ async function addSite() {
 // ══════════════════════════════════════════════════════════════════
 
 async function enterMain() {
-  const data    = await load(['keywords','enabled','siteRules','blockedGenres']);
+  const data    = await load(['keywords','enabled','siteRules','blockedGenres','timeLimits']);
   keywords      = data.keywords      || [];
   enabled       = data.enabled      !== false;
   siteRules     = data.siteRules     || [];
   blockedGenres = data.blockedGenres || [];
+  timeLimits    = data.timeLimits    || [];
 
   renderKeywords();
   renderPresets();
   renderSiteRules();
   renderGenres();
   renderGenrePresets();
+  renderTimeLimits();
   updateStatusUI();
   setSiteMode('block');
   showScreen('main');
@@ -442,6 +445,267 @@ document.getElementById('genre-input').addEventListener('keydown', e => {
     const inp = document.getElementById('genre-input');
     if (inp) { addGenre(inp.value); inp.value = ''; }
   }
+});
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// SCREEN TIME TAB
+// ══════════════════════════════════════════════════════════════════
+
+const ST_PRESETS = ['youtube.com','tiktok.com','instagram.com','facebook.com','twitter.com','roblox.com','minecraft.net'];
+
+// Format minutes → "1h 30m" or "45m"
+function fmtMins(mins) {
+  if (!mins && mins !== 0) return '0m';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? (m > 0 ? h + 'h ' + m + 'm' : h + 'h') : m + 'm';
+}
+
+// Get today's date string YYYY-MM-DD
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// Get or reset daily usage for a site
+async function getUsage(url) {
+  const key = 'usage_' + url;
+  const data = await load([key]);
+  const rec  = data[key];
+  // If no record or it's from a previous day, return 0
+  if (!rec || rec.date !== todayStr()) return 0;
+  return rec.mins || 0;
+}
+
+async function setUsage(url, mins) {
+  const key = 'usage_' + url;
+  const obj = {};
+  obj[key] = { date: todayStr(), mins };
+  await save(obj);
+}
+
+// Render the screen time tab — uses DOM API only (no template literals)
+async function renderTimeLimits() {
+  const list    = document.getElementById('st-list');
+  const countEl = document.getElementById('st-count');
+  if (!list) return;
+  if (countEl) countEl.textContent = timeLimits.length;
+  renderStPresets();
+
+  if (!timeLimits.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">&#x23F1;</div>No time limits set yet.<br/>Add a website above to set a daily limit.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+
+  for (var idx = 0; idx < timeLimits.length; idx++) {
+    var tl        = timeLimits[idx];
+    var usedMins  = await getUsage(tl.url);
+    var limitMins = tl.limitMins || 60;
+    var pct       = Math.min(100, Math.round((usedMins / limitMins) * 100));
+    var isOver    = usedMins >= limitMins;
+    var isWarn    = pct >= 80 && !isOver;
+    var barColor  = isOver ? 'var(--red)' : isWarn ? 'var(--amber)' : 'var(--green)';
+    var statusTxt = isOver ? 'Limit reached' : isWarn ? 'Almost up' : 'Active';
+
+    // Card
+    var card = document.createElement('div');
+    card.className = 'st-card';
+
+    // ── Top row ──────────────────────────────────────────────────
+    var top = document.createElement('div');
+    top.className = 'st-card-top';
+
+    var favDiv = document.createElement('div');
+    favDiv.className = 'st-site-icon';
+    var favImg = document.createElement('img');
+    favImg.src = 'https://www.google.com/s2/favicons?domain=' + tl.url + '&sz=32';
+    favImg.addEventListener('error', function() { this.parentElement.textContent = '🌐'; });
+    favDiv.appendChild(favImg);
+
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'st-site-name';
+    nameSpan.textContent = tl.url;
+
+    var statusSpan = document.createElement('span');
+    statusSpan.style.cssText = 'font-size:10px;font-weight:600;flex-shrink:0;color:' + barColor;
+    statusSpan.textContent = statusTxt;
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'st-del';
+    delBtn.dataset.idx = String(idx);
+    delBtn.title = 'Remove';
+    delBtn.textContent = 'x';
+
+    top.appendChild(favDiv);
+    top.appendChild(nameSpan);
+    top.appendChild(statusSpan);
+    top.appendChild(delBtn);
+
+    // ── Progress bar ──────────────────────────────────────────────
+    var progWrap = document.createElement('div');
+    progWrap.className = 'st-progress-wrap';
+
+    var progBar = document.createElement('div');
+    progBar.className = 'st-progress-bar';
+
+    var progFill = document.createElement('div');
+    progFill.className = 'st-progress-fill';
+    progFill.style.width = pct + '%';
+    progFill.style.background = barColor;
+    progBar.appendChild(progFill);
+
+    var progLabels = document.createElement('div');
+    progLabels.className = 'st-progress-labels';
+
+    var usedLabel = document.createElement('span');
+    usedLabel.className = 'st-progress-used';
+    usedLabel.style.color = barColor;
+    usedLabel.textContent = fmtMins(usedMins) + ' used';
+
+    var limitLabel = document.createElement('span');
+    limitLabel.className = 'st-progress-limit';
+    limitLabel.textContent = 'limit: ' + fmtMins(limitMins);
+
+    progLabels.appendChild(usedLabel);
+    progLabels.appendChild(limitLabel);
+    progWrap.appendChild(progBar);
+    progWrap.appendChild(progLabels);
+
+    // ── Limit edit row ────────────────────────────────────────────
+    var limitRow = document.createElement('div');
+    limitRow.className = 'st-limit-row';
+
+    var lbl = document.createElement('span');
+    lbl.className = 'st-limit-label';
+    lbl.textContent = 'Daily limit:';
+
+    var hInput = document.createElement('input');
+    hInput.type = 'number'; hInput.className = 'st-limit-input';
+    hInput.dataset.idx = String(idx);
+    hInput.value = String(Math.floor(limitMins / 60) || 0);
+    hInput.min = '0'; hInput.max = '23'; hInput.title = 'Hours';
+
+    var hUnit = document.createElement('span');
+    hUnit.className = 'st-limit-unit'; hUnit.textContent = 'h';
+
+    var mInput = document.createElement('input');
+    mInput.type = 'number'; mInput.className = 'st-limit-input';
+    mInput.dataset.idx = String(idx);
+    mInput.value = String(limitMins % 60);
+    mInput.min = '0'; mInput.max = '59'; mInput.title = 'Minutes';
+
+    var mUnit = document.createElement('span');
+    mUnit.className = 'st-limit-unit'; mUnit.textContent = 'm';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'st-save-btn';
+    saveBtn.dataset.idx = String(idx);
+    saveBtn.textContent = 'Save';
+
+    var resetBtn = document.createElement('button');
+    resetBtn.className = 'st-reset-btn';
+    resetBtn.dataset.idx = String(idx);
+    resetBtn.style.marginLeft = '6px';
+    resetBtn.textContent = 'Reset today';
+
+    limitRow.appendChild(lbl);
+    limitRow.appendChild(hInput);
+    limitRow.appendChild(hUnit);
+    limitRow.appendChild(mInput);
+    limitRow.appendChild(mUnit);
+    limitRow.appendChild(saveBtn);
+    limitRow.appendChild(resetBtn);
+
+    // Assemble card
+    card.appendChild(top);
+    card.appendChild(progWrap);
+    card.appendChild(limitRow);
+    list.appendChild(card);
+  }
+
+  // Wire delete buttons
+  list.querySelectorAll('.st-del').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var i   = parseInt(btn.dataset.idx);
+      var url = timeLimits[i].url;
+      timeLimits.splice(i, 1);
+      await save({ timeLimits });
+      chrome.runtime.sendMessage({ type: 'APPLY_TIME_LIMITS' });
+      renderTimeLimits();
+      toast(url + ' time limit removed', 'warn');
+    });
+  });
+
+  // Wire save buttons
+  list.querySelectorAll('.st-save-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var i      = parseInt(btn.dataset.idx);
+      var inputs = btn.closest('.st-card').querySelectorAll('.st-limit-input');
+      var hours  = parseInt(inputs[0].value) || 0;
+      var mins   = parseInt(inputs[1].value) || 0;
+      var total  = (hours * 60) + mins;
+      if (total < 1) { toast('Set at least 1 minute', 'err'); return; }
+      timeLimits[i].limitMins = total;
+      await save({ timeLimits });
+      chrome.runtime.sendMessage({ type: 'APPLY_TIME_LIMITS' });
+      renderTimeLimits();
+      toast('Saved: ' + timeLimits[i].url + ' = ' + fmtMins(total) + ' per day');
+    });
+  });
+
+  // Wire reset buttons
+  list.querySelectorAll('.st-reset-btn').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      var i   = parseInt(btn.dataset.idx);
+      var url = timeLimits[i].url;
+      await setUsage(url, 0);
+      chrome.runtime.sendMessage({ type: 'RESET_USAGE', url: url });
+      renderTimeLimits();
+      toast(url + ' usage reset', 'ok');
+    });
+  });
+}
+
+
+
+// Render quick-add preset chips
+function renderStPresets() {
+  const row = document.getElementById('st-presets-row');
+  if (!row) return;
+  row.innerHTML = '';
+  ST_PRESETS.forEach(site => {
+    const added = timeLimits.some(t => t.url === site);
+    const chip  = document.createElement('div');
+    chip.className = 'st-chip' + (added ? ' added' : '');
+    chip.style.cssText = added ? 'border-color:rgba(245,158,11,.3);color:var(--amber);background:rgba(245,158,11,.06);cursor:default' : '';
+    chip.textContent = added ? '✓ ' + site : '+ ' + site;
+    if (!added) chip.addEventListener('click', () => addTimeLimit(site));
+    row.appendChild(chip);
+  });
+}
+
+// Add a new time limit entry
+async function addTimeLimit(rawUrl) {
+  let url = (rawUrl || document.getElementById('st-site-input')?.value || '').trim().toLowerCase();
+  url = url.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  if (!url || !url.includes('.')) { toast('Enter a valid domain like youtube.com', 'err'); return; }
+  if (timeLimits.some(t => t.url === url)) { toast(url + ' already has a limit', 'warn'); return; }
+
+  timeLimits.push({ url, limitMins: 60 }); // default 60 min
+  await save({ timeLimits });
+  chrome.runtime.sendMessage({ type: 'APPLY_TIME_LIMITS' });
+  const inp = document.getElementById('st-site-input');
+  if (inp) inp.value = '';
+  renderTimeLimits();
+  toast('✓ ' + url + ' — 1 hour daily limit set (adjust below)');
+}
+
+document.getElementById('st-add-btn').addEventListener('click', () => addTimeLimit());
+document.getElementById('st-site-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTimeLimit();
 });
 
 
