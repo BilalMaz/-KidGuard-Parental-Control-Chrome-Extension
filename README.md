@@ -58,7 +58,7 @@ Two modes:
 - Global on/off toggle to temporarily pause all controls
 - Lock button to secure the popup after making changes
 
-### Screen Time Limits
+### ⏰ Screen Time Limits
 Set daily time limits for YouTube or specific websites. When the limit is reached, the page is blocked automatically. Example: YouTube allowed for 1 hour per day only.
 
 ---
