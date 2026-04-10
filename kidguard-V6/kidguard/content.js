@@ -6,9 +6,11 @@
   if (window.__kidguardActive) return;
   window.__kidguardActive = true;
 
-  let keywords = [];
-  let enabled  = true;
-  let feedObserver = null;
+  let keywords        = [];
+  let enabled         = true;
+  let allowedChannels = [];
+  let channelsEnabled = false;
+  let feedObserver    = null;
 
   // ── CSS injected once ────────────────────────────────────────────
   function injectStyles() {
@@ -39,9 +41,11 @@
 
   // ── Load settings ─────────────────────────────────────────────────
   function loadSettings(cb) {
-    chrome.storage.sync.get(['keywords', 'enabled'], (r) => {
-      keywords = (r.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
-      enabled  = r.enabled !== false;
+    chrome.storage.sync.get(['keywords', 'enabled', 'allowedChannels', 'channelsEnabled'], (r) => {
+      keywords        = (r.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+      enabled         = r.enabled !== false;
+      allowedChannels = r.allowedChannels || [];
+      channelsEnabled = r.channelsEnabled || false;
       if (cb) cb();
     });
   }
@@ -338,6 +342,7 @@
     feedObserver = new MutationObserver(() => {
       scanFeedCards();
       scanCardGenres();
+      scanChannelCards();
       blockGenreChips();
       wireSearchBar();
     });
@@ -493,7 +498,9 @@
       removeBlockOverlay();
       setTimeout(() => {
         checkCurrentPage();
+        checkChannelAllowlist();
         scanFeedCards();
+        scanChannelCards();
         wireSearchBar();
       }, 500);
     }
@@ -501,7 +508,7 @@
 
   // ── React to settings changes in real time ────────────────────────
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.keywords || changes.enabled) {
+    if (changes.keywords || changes.enabled || changes.allowedChannels || changes.channelsEnabled) {
       loadSettings(() => {
         // Re-scan all cards (unhide if keywords removed)
         document.querySelectorAll('.kg-hidden-card').forEach(el => {
@@ -517,14 +524,165 @@
     }
   });
 
+
+  // ══════════════════════════════════════════════════════════════════
+  // CHANNEL ALLOWLIST ENFORCEMENT
+  // ══════════════════════════════════════════════════════════════════
+
+  // Extract channel identity from current page or a card element
+  function getChannelFromPage() {
+    // Channel handle from URL: youtube.com/@handle
+    const urlHandle = location.pathname.match(/^\/@([\w.-]+)/i);
+    if (urlHandle) return { handle: '@' + urlHandle[1].toLowerCase(), name: urlHandle[1], id: '' };
+
+    // Channel ID from URL: youtube.com/channel/UCxxxx
+    const urlId = location.pathname.match(/^\/channel\/(UC[\w-]+)/i);
+    if (urlId) return { id: urlId[1], handle: '', name: '' };
+
+    // From page metadata
+    const metaHandle = document.querySelector('meta[itemprop="channelId"]')?.content ||
+                       document.querySelector('link[rel="canonical"]')?.href?.match(/\/@([\w.-]+)/)?.[1];
+    if (metaHandle) return { handle: '@' + metaHandle.toLowerCase(), name: metaHandle, id: '' };
+
+    // From video page — channel link in description area
+    const channelLink = document.querySelector('ytd-video-owner-renderer a, #owner-name a, ytd-channel-name a');
+    if (channelLink) {
+      const href   = channelLink.getAttribute('href') || '';
+      const hMatch = href.match(/\/@([\w.-]+)/i) || href.match(/\/channel\/(UC[\w-]+)/i);
+      const name   = channelLink.textContent?.trim() || '';
+      if (hMatch) {
+        const isHandle = hMatch[0].startsWith('/@');
+        return isHandle
+          ? { handle: '@' + hMatch[1].toLowerCase(), name, id: '' }
+          : { id: hMatch[1], name, handle: '' };
+      }
+    }
+    return null;
+  }
+
+  // Check if a channel identity is in the allowed list
+  function isChannelAllowed(ch) {
+    if (!channelsEnabled || !allowedChannels.length) return true;
+    if (!ch) return false;
+    return allowedChannels.some(function(allowed) {
+      if (allowed.id && ch.id && allowed.id === ch.id) return true;
+      if (allowed.handle && ch.handle && allowed.handle.toLowerCase() === ch.handle.toLowerCase()) return true;
+      if (allowed.name && ch.name && allowed.name.toLowerCase() === ch.name.toLowerCase()) return true;
+      return false;
+    });
+  }
+
+  // Show channel block overlay
+  function showChannelBlockOverlay(channelName) {
+    if (document.getElementById('kg-overlay')) return;
+    injectStyles();
+
+    const overlay = document.createElement('div'); overlay.id = 'kg-overlay';
+    const box = document.createElement('div'); box.className = 'kg-box';
+
+    const icon = document.createElement('div'); icon.className = 'kg-icon'; icon.textContent = '📺';
+    const badge = document.createElement('div'); badge.className = 'kg-badge'; badge.textContent = '🔒 KidGuard — Channel Blocked';
+    const title = document.createElement('div'); title.className = 'kg-title'; title.textContent = 'Channel Not Allowed';
+
+    const msg = document.createElement('div'); msg.className = 'kg-msg';
+    msg.textContent = 'This channel is not on the approved list.';
+    const kwSpan = document.createElement('span'); kwSpan.className = 'kg-kw';
+    kwSpan.textContent = channelName || 'This channel';
+    msg.appendChild(document.createElement('br'));
+    msg.appendChild(kwSpan);
+
+    const sub = document.createElement('div'); sub.className = 'kg-sub';
+    sub.textContent = 'Only approved channels can be watched. Ask a parent or guardian to add this channel.';
+
+    const btns = document.createElement('div'); btns.className = 'kg-btns';
+    const btnBack = document.createElement('button'); btnBack.className = 'kg-btn'; btnBack.textContent = '← Go Back';
+    btnBack.addEventListener('click', function() {
+      if (window.history.length > 1) history.back();
+      else window.location.href = 'https://www.youtube.com';
+    });
+    const btnHome = document.createElement('button'); btnHome.className = 'kg-btn kg-btn-red'; btnHome.textContent = '🏠 YouTube Home';
+    btnHome.addEventListener('click', function() { window.location.href = 'https://www.youtube.com'; });
+
+    btns.appendChild(btnBack); btns.appendChild(btnHome);
+    box.appendChild(icon); box.appendChild(badge); box.appendChild(title);
+    box.appendChild(msg); box.appendChild(sub); box.appendChild(btns);
+    overlay.appendChild(box);
+
+    document.querySelectorAll('video').forEach(function(v) { v.pause(); v.volume = 0; });
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Check if current page's channel is allowed
+  function checkChannelAllowlist() {
+    if (!enabled || !channelsEnabled || !allowedChannels.length) { return; }
+
+    // Only enforce on watch pages and channel pages
+    const isWatch   = location.pathname.includes('/watch');
+    const isChannel = location.pathname.match(/^\/@|^\/channel\//i);
+    if (!isWatch && !isChannel) return;
+
+    // Try to get channel info from page — retry as DOM loads
+    const tryCheck = function(attemptsLeft) {
+      const ch = getChannelFromPage();
+      if (!ch && attemptsLeft > 0) {
+        setTimeout(function() { tryCheck(attemptsLeft - 1); }, 600);
+        return;
+      }
+      if (!ch) return;
+      if (!isChannelAllowed(ch)) {
+        showChannelBlockOverlay(ch.name || ch.handle || 'Unknown channel');
+        // Pause video immediately
+        document.querySelectorAll('video').forEach(function(v) { v.pause(); v.volume = 0; });
+      }
+    };
+    tryCheck(8);
+  }
+
+  // Hide cards from disallowed channels in feed
+  function scanChannelCards() {
+    if (!enabled || !channelsEnabled || !allowedChannels.length) return;
+
+    const CARD_TYPES = [
+      'ytd-video-renderer', 'ytd-compact-video-renderer',
+      'ytd-grid-video-renderer', 'ytd-rich-item-renderer',
+      'ytd-video-with-context-renderer',
+    ];
+
+    document.querySelectorAll(CARD_TYPES.join(',')).forEach(function(card) {
+      if (card.dataset.kgChChecked) return;
+
+      const channelLink = card.querySelector('ytd-channel-name a, #channel-name a, .ytd-channel-name a, a.yt-simple-endpoint[href*="/@"], a.yt-simple-endpoint[href*="/channel/"]');
+      if (!channelLink) return; // not loaded yet
+
+      card.dataset.kgChChecked = '1';
+      const href   = channelLink.getAttribute('href') || '';
+      const name   = channelLink.textContent?.trim() || '';
+      const hMatch = href.match(/\/@([\w.-]+)/i) || href.match(/\/channel\/(UC[\w-]+)/i);
+      if (!hMatch) return;
+
+      const isHandle = hMatch[0].startsWith('/@');
+      const ch = isHandle
+        ? { handle: '@' + hMatch[1].toLowerCase(), name, id: '' }
+        : { id: hMatch[1], name, handle: '' };
+
+      if (!isChannelAllowed(ch)) {
+        card.classList.add('kg-hidden-card');
+      }
+    });
+  }
+
+
   // ── Init ──────────────────────────────────────────────────────────
   function init() {
     injectStyles();
     loadSettings(() => {
       checkCurrentPage();
+      checkChannelAllowlist();
       wireSearchBar();
       scanFeedCards();
       scanCardGenres();
+      scanChannelCards();
       blockGenreChips();
       blockGenreLinks();
       interceptGenreClicks();
@@ -535,10 +693,12 @@
     setTimeout(() => {
       scanFeedCards();
       scanCardGenres();
+      scanChannelCards();
       blockGenreChips();
       blockGenreLinks();
       wireSearchBar();
       checkCurrentPage();
+      checkChannelAllowlist();
     }, 1200);
 
     // Third pass for slow connections / lazy loaded content

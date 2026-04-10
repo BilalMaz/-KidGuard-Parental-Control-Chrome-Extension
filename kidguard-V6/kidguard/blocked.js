@@ -43,6 +43,14 @@
     tagEl.textContent    = site || 'This website';
     reasonEl.textContent = 'This website is not on your approved list.\nOnly allowed websites can be visited.\nAsk a parent or guardian for access.';
 
+  } else if (reason === 'channel') {
+    // Blocked because channel is not on allowlist
+    var channelName = params.get('channel') || 'This channel';
+    titleEl.textContent  = 'Channel Not Allowed';
+    tagEl.textContent    = channelName;
+    reasonEl.textContent = 'This YouTube channel is not on your approved list.\nOnly approved channels can be watched.\nAsk a parent or guardian to add it.';
+    btnHome.textContent  = '\uD83C\uDFE0 YouTube Home';
+
   } else if (reason === 'timelimit') {
     // Daily time limit reached
     var used  = params.get('used')  || '?';
@@ -85,6 +93,8 @@
 
   btnHome.addEventListener('click', function () {
     if (keyword && (context === 'video' || context === 'search')) {
+      window.location.href = 'https://www.youtube.com';
+    } else if (reason === 'channel') {
       window.location.href = 'https://www.youtube.com';
     } else {
       window.location.href = 'https://www.google.com';

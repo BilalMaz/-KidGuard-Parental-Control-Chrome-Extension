@@ -11,12 +11,14 @@ function load(keys) { return new Promise(r => chrome.storage.sync.get(keys, r));
 function save(obj)  { return new Promise(r => chrome.storage.sync.set(obj, r)); }
 
 // ── State ────────────────────────────────────────────────────────
-let keywords      = [];
-let siteRules     = [];   // [{ url, mode: 'block'|'allow' }]
-let blockedGenres = [];   // ['Gaming', 'Horror', ...]
-let timeLimits    = [];   // [{ url, limitMins, usedMins }]
-let siteMode      = 'block';
-let enabled       = true;
+let keywords        = [];
+let siteRules       = [];   // [{ url, mode: 'block'|'allow' }]
+let blockedGenres   = [];   // ['Gaming', 'Horror', ...]
+let timeLimits      = [];   // [{ url, limitMins, usedMins }]
+let allowedChannels = [];   // [{ name, handle, id }]
+let channelsEnabled = false;
+let siteMode        = 'block';
+let enabled         = true;
 
 const PRESETS = ['sex','porn','nude','naked','adult','xxx','violence','gore','drugs','gambling'];
 
@@ -348,12 +350,14 @@ async function addSite() {
 // ══════════════════════════════════════════════════════════════════
 
 async function enterMain() {
-  const data    = await load(['keywords','enabled','siteRules','blockedGenres','timeLimits']);
-  keywords      = data.keywords      || [];
-  enabled       = data.enabled      !== false;
-  siteRules     = data.siteRules     || [];
-  blockedGenres = data.blockedGenres || [];
-  timeLimits    = data.timeLimits    || [];
+  const data      = await load(['keywords','enabled','siteRules','blockedGenres','timeLimits','allowedChannels','channelsEnabled']);
+  keywords        = data.keywords        || [];
+  enabled         = data.enabled        !== false;
+  siteRules       = data.siteRules       || [];
+  blockedGenres   = data.blockedGenres   || [];
+  timeLimits      = data.timeLimits      || [];
+  allowedChannels = data.allowedChannels || [];
+  channelsEnabled = data.channelsEnabled || false;
 
   renderKeywords();
   renderPresets();
@@ -361,6 +365,7 @@ async function enterMain() {
   renderGenres();
   renderGenrePresets();
   renderTimeLimits();
+  renderChannels();
   updateStatusUI();
   setSiteMode('block');
   showScreen('main');
@@ -706,6 +711,197 @@ async function addTimeLimit(rawUrl) {
 document.getElementById('st-add-btn').addEventListener('click', () => addTimeLimit());
 document.getElementById('st-site-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') addTimeLimit();
+});
+
+
+
+// ══════════════════════════════════════════════════════════════════
+// CHANNELS TAB — Allowed Channels Only
+// ══════════════════════════════════════════════════════════════════
+
+// Educational channel presets
+const CHANNEL_PRESETS = [
+  { name: 'Khan Academy',        handle: '@khanacademy',        id: 'UC4a-Gbdw7vOaccHmFo40b9g' },
+  { name: 'National Geographic', handle: '@NatGeo',             id: 'UCpVm7bg6pXKo1Pr6k5kxG9A' },
+  { name: 'CrashCourse',         handle: '@crashcourse',        id: 'UCX6b17PVsYBQ0ip5gyeme-Q' },
+  { name: 'TED-Ed',              handle: '@TED-Ed',             id: 'UCsooa4yRKGN_zEE8iknghZA' },
+  { name: 'SciShow',             handle: '@SciShow',            id: 'UCZYTClx2T1of7BRZ86-8fow' },
+  { name: 'PBS Space Time',      handle: '@pbsspacetime',       id: 'UC7_gcs09iThXybpVgjHZ_7g' },
+  { name: 'Kurzgesagt',          handle: '@kurzgesagt',         id: 'UCsXVk37bltHxD1rDPwtNM8Q' },
+  { name: 'BBC Earth',           handle: '@BBCEarth',           id: 'UCwmZiChSryoWQCZMIQezgTg' },
+];
+
+// Parse a raw input into a channel object
+function parseChannelInput(raw) {
+  raw = raw.trim();
+  if (!raw) return null;
+
+  // YouTube URL patterns
+  // https://www.youtube.com/@handle
+  // https://www.youtube.com/channel/UCxxxx
+  // https://www.youtube.com/c/name
+  // https://www.youtube.com/user/name
+  const handleMatch  = raw.match(/youtube\.com\/@([\w.-]+)/i) || raw.match(/^@([\w.-]+)$/);
+  const channelMatch = raw.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
+  const cMatch       = raw.match(/youtube\.com\/(?:c|user)\/([\w.-]+)/i);
+
+  if (handleMatch)  return { name: '@' + handleMatch[1],  handle: '@' + handleMatch[1].toLowerCase(),  id: '' };
+  if (channelMatch) return { name: channelMatch[1],        handle: '',                                  id: channelMatch[1] };
+  if (cMatch)       return { name: cMatch[1],              handle: '@' + cMatch[1].toLowerCase(),       id: '' };
+
+  // Plain text — treat as channel name / handle
+  const clean = raw.replace(/^@/, '');
+  return { name: raw.startsWith('@') ? raw : clean, handle: '@' + clean.toLowerCase(), id: '' };
+}
+
+// Check if a channel matches any in the allowed list
+function channelIsAllowed(channelName, channelHandle, channelId) {
+  if (!allowedChannels.length) return true; // empty list = allow all
+  return allowedChannels.some(ch => {
+    if (ch.id && channelId && ch.id === channelId) return true;
+    if (ch.handle && channelHandle && ch.handle.toLowerCase() === channelHandle.toLowerCase()) return true;
+    if (ch.name && channelName && ch.name.toLowerCase() === channelName.toLowerCase()) return true;
+    return false;
+  });
+}
+
+// Render the channels toggle + list
+function renderChannels() {
+  // Master toggle
+  const toggle   = document.getElementById('ch-enabled-toggle');
+  const toggleSub = document.getElementById('ch-toggle-sub');
+  if (toggle) {
+    toggle.checked = channelsEnabled;
+    if (toggleSub) {
+      toggleSub.textContent = channelsEnabled
+        ? 'Enabled — only approved channels allowed'
+        : 'Disabled — all channels accessible';
+    }
+  }
+
+  // Count
+  const countEl = document.getElementById('ch-count');
+  if (countEl) countEl.textContent = allowedChannels.length;
+
+  // Presets
+  renderChannelPresets();
+
+  // List
+  const list = document.getElementById('ch-list');
+  if (!list) return;
+
+  if (!allowedChannels.length) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">&#x1F4FA;</div>No channels added yet.<br/>Add channels below or use the educational presets.</div>';
+    return;
+  }
+
+  list.innerHTML = '';
+  allowedChannels.forEach(function(ch, idx) {
+    var card = document.createElement('div');
+    card.className = 'ch-card';
+
+    var avatar = document.createElement('div');
+    avatar.className = 'ch-avatar';
+    // Try to load channel favicon from YouTube
+    if (ch.handle) {
+      var img = document.createElement('img');
+      img.src = 'https://www.google.com/s2/favicons?domain=youtube.com&sz=32';
+      img.addEventListener('error', function() { avatar.textContent = 'YT'; });
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = (ch.name || '?')[0].toUpperCase();
+    }
+
+    var info = document.createElement('div');
+    info.className = 'ch-info';
+
+    var name = document.createElement('div');
+    name.className = 'ch-name';
+    name.textContent = ch.name || ch.handle || ch.id;
+
+    var handle = document.createElement('div');
+    handle.className = 'ch-handle';
+    handle.textContent = ch.handle || (ch.id ? 'ID: ' + ch.id : '');
+
+    info.appendChild(name);
+    if (handle.textContent) info.appendChild(handle);
+
+    var del = document.createElement('button');
+    del.className = 'ch-del';
+    del.textContent = 'x';
+    del.title = 'Remove';
+    del.dataset.idx = String(idx);
+    del.addEventListener('click', async function() {
+      var i = parseInt(del.dataset.idx);
+      var removed = allowedChannels[i].name;
+      allowedChannels.splice(i, 1);
+      await save({ allowedChannels });
+      notifyYoutubeTabs();
+      renderChannels();
+      toast('"' + removed + '" removed from allowed list', 'warn');
+    });
+
+    card.appendChild(avatar);
+    card.appendChild(info);
+    card.appendChild(del);
+    list.appendChild(card);
+  });
+}
+
+function renderChannelPresets() {
+  var row = document.getElementById('ch-presets-row');
+  if (!row) return;
+  row.innerHTML = '';
+  CHANNEL_PRESETS.forEach(function(preset) {
+    var added = allowedChannels.some(function(ch) {
+      return ch.handle === preset.handle || ch.id === preset.id || ch.name === preset.name;
+    });
+    var chip = document.createElement('div');
+    chip.className = 'ch-chip' + (added ? ' added' : '');
+    chip.textContent = added ? '✓ ' + preset.name : '+ ' + preset.name;
+    if (!added) {
+      chip.addEventListener('click', function() { addChannel(null, preset); });
+    }
+    row.appendChild(chip);
+  });
+}
+
+async function addChannel(raw, preset) {
+  var ch = preset || parseChannelInput(raw || document.getElementById('ch-input').value);
+  if (!ch) { toast('Enter a channel name or URL', 'err'); return; }
+
+  // Check duplicate
+  var dup = allowedChannels.some(function(existing) {
+    return (ch.handle && existing.handle === ch.handle) ||
+           (ch.id     && existing.id     === ch.id)     ||
+           (ch.name   && existing.name   === ch.name);
+  });
+  if (dup) { toast('"' + (ch.name || ch.handle) + '" already in list', 'warn'); return; }
+
+  allowedChannels.push(ch);
+  await save({ allowedChannels });
+  notifyYoutubeTabs();
+  var inp = document.getElementById('ch-input');
+  if (inp) inp.value = '';
+  renderChannels();
+  toast('✓ "' + (ch.name || ch.handle) + '" added to allowed channels');
+}
+
+// Master toggle listener
+document.getElementById('ch-enabled-toggle').addEventListener('change', async function() {
+  channelsEnabled = this.checked;
+  await save({ channelsEnabled });
+  notifyYoutubeTabs();
+  renderChannels();
+  toast(channelsEnabled ? '✓ Channel filter ON — only allowed channels accessible' : 'Channel filter OFF', channelsEnabled ? 'ok' : 'warn');
+});
+
+// Add button
+document.getElementById('ch-add-btn').addEventListener('click', function() {
+  addChannel(document.getElementById('ch-input').value);
+});
+document.getElementById('ch-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addChannel(document.getElementById('ch-input').value);
 });
 
 

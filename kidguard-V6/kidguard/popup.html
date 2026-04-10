@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>KidGuard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090f;--s1:#0d1117;--s2:#131922;--s3:#182030;
+  --border:#1e2a3a;--border2:#2a3a50;
+  --red:#ef4444;--red2:#dc2626;
+  --green:#22c55e;--green2:#16a34a;
+  --blue:#3b82f6;--amber:#f59e0b;--orange:#f97316;
+  --text:#e2e8f0;--muted:#64748b;--dim:#2d3f52;
+  --r:10px;--font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+}
+
+/* ── BASE ── */
+html,body{min-width:380px;width:420px;max-width:420px}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+
+/* ── SCREENS ── */
+.screen{display:none}
+.screen.active{display:block;animation:fadeIn .2s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── HEADER ── */
+.header{
+  background:linear-gradient(135deg,#0a1628 0%,#0d1117 100%);
+  border-bottom:1px solid var(--border);
+  padding:14px 18px 13px;
+}
+.hdr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--red),var(--red2));
+  border-radius:9px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;box-shadow:0 0 16px rgba(239,68,68,.25);flex-shrink:0;
+}
+.logo-text{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.3px}
+.logo-text span{color:var(--red)}
+.lock-btn{
+  display:flex;align-items:center;gap:5px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:8px;padding:6px 12px;
+  font-size:12px;font-weight:600;color:var(--muted);
+  cursor:pointer;transition:all .2s;font-family:var(--font);
+  white-space:nowrap;
+}
+.lock-btn:hover{border-color:var(--border2);color:var(--text)}
+.status-pill{
+  display:flex;align-items:center;gap:9px;
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:9px;padding:9px 13px;
+}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.status-dot.off{background:var(--muted)}
+.status-text{font-size:13px;flex:1;font-weight:500}
+.status-text strong{color:var(--text)}
+.toggle-btn{
+  background:none;border:1px solid var(--border);border-radius:7px;
+  font-family:var(--font);font-size:12px;font-weight:600;
+  color:var(--muted);cursor:pointer;padding:5px 13px;
+  transition:all .2s;white-space:nowrap;
+}
+.toggle-btn.on{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+.toggle-btn.off{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:var(--red)}
+
+/* ── TABS ── */
+.tabs{
+  display:flex;background:var(--s1);
+  border-bottom:2px solid var(--border);
+  overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;
+}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  flex:0 0 auto;
+  padding:11px 0;
+  text-align:center;
+  font-size:11px;font-weight:700;
+  color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;
+  margin-bottom:-2px;
+  transition:all .18s;
+  letter-spacing:.3px;
+  text-transform:uppercase;
+  min-width:76px;
+  white-space:nowrap;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.tab .tab-icon{font-size:14px;display:block}
+.tab .tab-label{display:block;font-size:10px}
+.tab:hover{color:var(--text);background:rgba(255,255,255,.02)}
+.tab.active{color:var(--red);border-bottom-color:var(--red);background:rgba(239,68,68,.04)}
+
+/* ── TAB BODY ── */
+.tab-body{padding:14px 16px;display:none}
+.tab-body.active{display:block;animation:fadeIn .18s ease}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat-box{
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:10px;padding:11px 8px;text-align:center;
+}
+.stat-num{font-size:22px;font-weight:800;line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+/* ── SECTION LABEL ── */
+.sec-label{
+  font-size:10px;font-weight:700;letter-spacing:1.2px;
+  text-transform:uppercase;color:var(--muted);
+  margin-bottom:9px;display:flex;align-items:center;gap:8px;
+}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── INPUT ROW ── */
+.add-row{display:flex;gap:7px;margin-bottom:12px}
+.add-input{
+  flex:1;min-width:0;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:9px;color:var(--text);
+  font-family:var(--font);font-size:13px;
+  padding:10px 13px;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.add-input:focus{border-color:var(--red);box-shadow:0 0 0 2px rgba(239,68,68,.1)}
+.add-input::placeholder{color:var(--dim)}
+.add-btn{
+  flex-shrink:0;
+  background:var(--red);color:#fff;border:none;
+  border-radius:9px;padding:0 16px;
+  font-family:var(--font);font-size:13px;font-weight:700;
+  cursor:pointer;white-space:nowrap;transition:all .2s;
+  height:40px;
+}
+.add-btn:hover{background:var(--red2);transform:translateY(-1px)}
+.add-btn.green{background:var(--green)}
+.add-btn.green:hover{background:var(--green2)}
+
+/* ── MODE SELECTOR ── */
+.mode-row{display:flex;gap:7px;margin-bottom:12px}
+.mode-btn{
+  flex:1;padding:9px 8px;border-radius:9px;
+  font-family:var(--font);font-size:12px;font-weight:700;
+  cursor:pointer;border:1px solid var(--border);
+  background:var(--s2);color:var(--muted);
+  transition:all .18s;text-align:center;
+}
+.mode-btn:hover{border-color:var(--border2);color:var(--text)}
+.mode-btn.active-block{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.35);color:var(--red)}
+.mode-btn.active-allow{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.35);color:var(--green)}
+
+/* ── CARD LIST ── */
+.card-list{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
+.card-list::-webkit-scrollbar{width:3px}
+.card-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.item-card{
+  display:flex;align-items:center;gap:9px;
+  background:var(--s1);border:1px solid var(--border);
+  border-radius:9px;padding:9px 12px;
+  animation:slideIn .17s ease;transition:border-color .2s;
+}
+.item-card:hover{border-color:var(--border2)}
+@keyframes slideIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:translateX(0)}}
+.item-badge{
+  font-size:10px;font-weight:700;padding:2px 8px;
+  border-radius:20px;flex-shrink:0;letter-spacing:.3px;
+}
+.item-badge.block{background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.item-badge.allow{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.item-text{
+  font-family:var(--mono);font-size:12px;flex:1;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);
+}
+.item-del{
+  width:24px;height:24px;border-radius:6px;
+  background:none;border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;font-size:12px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .2s;
+}
+.item-del:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.06)}
+
+/* ── PRESETS ── */
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.preset-chip{
+  background:var(--s2);border:1px solid var(--border);
+  border-radius:20px;padding:5px 12px;
+  font-size:11px;font-weight:500;color:var(--muted);
+  cursor:pointer;transition:all .2s;
+}
+.preset-chip:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.06)}
+.preset-chip.added{border-color:rgba(34,197,94,.3);color:var(--green);background:rgba(34,197,94,.06);cursor:default}
+
+/* ── INFO BOX ── */
+.info-box{
+  background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);
+  border-radius:9px;padding:10px 13px;
+  font-size:12px;color:rgba(148,195,255,.85);line-height:1.7;margin-bottom:12px;
+}
+.info-box strong{color:var(--blue)}
+
+/* ── EMPTY STATE ── */
+.empty{text-align:center;padding:24px 16px;color:var(--muted);font-size:12px;line-height:1.7}
+.empty-icon{font-size:28px;margin-bottom:8px;opacity:.4;display:block}
+
+/* ── AUTH ── */
+.auth-wrap{padding:28px 24px}
+.auth-icon{font-size:40px;text-align:center;margin-bottom:14px}
+.auth-title{font-size:19px;font-weight:800;color:#fff;text-align:center;margin-bottom:6px}
+.auth-sub{font-size:13px;color:var(--muted);text-align:center;line-height:1.6;margin-bottom:22px}
+.auth-field{position:relative;margin-bottom:11px}
+.auth-input{
+  width:100%;background:var(--s1);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);
+  font-family:var(--font);font-size:14px;
+  padding:12px 42px 12px 14px;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.auth-input:focus{border-color:var(--red);box-shadow:0 0 0 2px rgba(239,68,68,.1)}
+.auth-input.shake{animation:shake .3s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px}
+.auth-err{
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);
+  border-radius:9px;padding:9px 13px;font-size:12px;color:#f87171;
+  text-align:center;margin-bottom:11px;
+}
+.auth-btn{
+  width:100%;padding:13px;background:var(--red);color:#fff;
+  border:none;border-radius:10px;font-family:var(--font);
+  font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;margin-bottom:9px;
+}
+.auth-btn:hover{background:var(--red2);transform:translateY(-1px);box-shadow:0 5px 16px rgba(239,68,68,.25)}
+.auth-hint{font-size:11px;color:var(--muted);text-align:center}
+.strength-bar{width:100%;height:3px;background:var(--border);border-radius:2px;margin-top:8px;overflow:hidden}
+.strength-fill{height:100%;border-radius:2px;transition:width .3s,background .3s}
+.strength-text{font-size:10px;font-weight:600;margin-top:4px}
+
+/* ── TOAST ── */
+.toast{
+  position:fixed;bottom:12px;left:50%;
+  transform:translateX(-50%) translateY(12px);
+  background:var(--s2);border:1px solid var(--border);
+  color:var(--text);font-size:12px;font-weight:500;
+  padding:8px 18px;border-radius:22px;
+  opacity:0;pointer-events:none;transition:all .25s;
+  white-space:nowrap;z-index:9999;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{border-color:var(--green);color:var(--green)}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.warn{border-color:var(--amber);color:var(--amber)}
+
+/* ── SCREEN TIME ── */
+.st-card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:9px}
+.st-card-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.st-site-icon{width:28px;height:28px;border-radius:7px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;overflow:hidden}
+.st-site-icon img{width:100%;height:100%;object-fit:contain}
+.st-site-name{font-family:var(--mono);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-del{width:24px;height:24px;border-radius:5px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.st-del:hover{border-color:var(--red);color:var(--red)}
+.st-progress-wrap{margin-bottom:8px}
+.st-progress-bar{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden}
+.st-progress-fill{height:100%;border-radius:4px;transition:width .4s,background .3s}
+.st-progress-labels{display:flex;justify-content:space-between;margin-top:5px}
+.st-progress-used{font-size:11px;font-weight:600}
+.st-progress-limit{font-size:11px;color:var(--muted)}
+.st-limit-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.st-limit-label{font-size:11px;color:var(--muted);flex-shrink:0}
+.st-limit-input{width:52px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 7px;outline:none;text-align:center;transition:border-color .2s}
+.st-limit-input:focus{border-color:var(--amber)}
+.st-limit-unit{font-size:11px;color:var(--muted)}
+.st-save-btn{background:var(--amber);color:#0a0700;border:none;border-radius:6px;padding:5px 12px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;margin-left:auto}
+.st-save-btn:hover{background:#fbbf24}
+.st-reset-btn{font-size:10px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:var(--font);text-decoration:underline;padding:0}
+.st-reset-btn:hover{color:var(--text)}
+.st-add-row{display:flex;gap:7px;margin-bottom:12px}
+.st-add-input{flex:1;min-width:0;background:var(--s1);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--font);font-size:13px;padding:10px 13px;outline:none;transition:border-color .2s}
+.st-add-input:focus{border-color:var(--amber)}
+.st-add-input::placeholder{color:var(--dim)}
+.st-add-btn{flex-shrink:0;background:var(--amber);color:#0a0700;border:none;border-radius:9px;padding:0 16px;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s;height:40px}
+.st-add-btn:hover{background:#fbbf24;transform:translateY(-1px)}
+.st-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.st-chip{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s}
+.st-chip:hover{border-color:var(--amber);color:var(--amber);background:rgba(245,158,11,.06)}
+
+/* ── CHANNELS ── */
+.ch-toggle-row{display:flex;align-items:center;gap:12px;background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:13px 14px;margin-bottom:13px}
+.ch-toggle-icon{font-size:22px;flex-shrink:0}
+.ch-toggle-text{flex:1;min-width:0}
+.ch-toggle-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px}
+.ch-toggle-sub{font-size:11px;color:var(--muted);line-height:1.4}
+.ch-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.ch-switch input{display:none}
+.ch-slider{position:absolute;inset:0;background:var(--border2);border-radius:12px;cursor:pointer;transition:background .2s}
+.ch-slider::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ch-switch input:checked + .ch-slider{background:var(--green)}
+.ch-switch input:checked + .ch-slider::after{left:23px}
+.ch-card{display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:6px;animation:slideIn .17s ease;transition:border-color .2s}
+.ch-card:hover{border-color:var(--border2)}
+.ch-avatar{width:34px;height:34px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;overflow:hidden;border:1px solid var(--border)}
+.ch-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.ch-info{flex:1;min-width:0}
+.ch-name{font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-handle{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.ch-del{width:24px;height:24px;border-radius:6px;background:none;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.ch-del:hover{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.06)}
+.ch-presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.ch-chip{background:var(--s2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;font-weight:500;color:var(--muted);cursor:pointer;transition:all .2s}
+.ch-chip:hover{border-color:var(--green);color:var(--green);background:rgba(34,197,94,.06)}
+.ch-chip.added{border-color:rgba(34,197,94,.3);color:var(--green);background:rgba(34,197,94,.06);cursor:default}
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP ══ -->
+<div id="screen-setup" class="screen">
+  <div style="background:linear-gradient(135deg,#0a1628,var(--s1));border-bottom:1px solid var(--border);padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:9px"><div class="logo-icon">🛡</div><div class="logo-text">Kid<span>Guard</span></div></div>
+  </div>
+  <div class="auth-wrap">
+    <div class="auth-icon">🔐</div>
+    <div class="auth-title">Create Parent Password</div>
+    <div class="auth-sub">Set a password so only you can change<br/>parental control settings.</div>
+    <div class="auth-field"><input type="password" class="auth-input" id="setup-pw" placeholder="Create password"/><button class="eye-btn" data-t="setup-pw">👁</button></div>
+    <div class="strength-bar"><div class="strength-fill" id="setup-sf" style="width:0"></div></div>
+    <div class="strength-text" id="setup-st" style="color:var(--muted);margin-bottom:10px">&nbsp;</div>
+    <div class="auth-field"><input type="password" class="auth-input" id="setup-confirm" placeholder="Confirm password"/><button class="eye-btn" data-t="setup-confirm">👁</button></div>
+    <div class="auth-err" id="setup-err" style="display:none"></div>
+    <button class="auth-btn" id="setup-btn">Set Password &amp; Continue →</button>
+    <div class="auth-hint">Stored locally — never shared.</div>
+  </div>
+</div>
+
+<!-- ══ LOGIN ══ -->
+<div id="screen-login" class="screen">
+  <div style="background:linear-gradient(135deg,#0a1628,#0d1117);border-bottom:1px solid #1e2a3a;padding:14px 18px">
+    <div style="display:flex;align-items:center;gap:10px"><div class="logo-icon">🛡</div><div class="logo-text">Kid<span>Guard</span></div></div>
+  </div>
+  <div class="auth-wrap">
+    <div class="auth-icon">👨‍👧</div>
+    <div class="auth-title">Parent Login</div>
+    <div class="auth-sub">Enter your password to manage<br/>parental controls.</div>
+    <div class="auth-field"><input type="password" class="auth-input" id="login-pw" placeholder="Enter parent password"/><button class="eye-btn" data-t="login-pw">👁</button></div>
+    <div class="auth-err" id="login-err" style="display:none">Incorrect password. Try again.</div>
+    <button class="auth-btn" id="login-btn">Unlock Controls →</button>
+
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div id="screen-main" class="screen">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="hdr-top">
+      <div class="logo"><div class="logo-icon">🛡</div><div class="logo-text">Kid<span>Guard</span></div></div>
+      <button class="lock-btn" id="lock-btn">🔒 Lock</button>
+    </div>
+    <div class="status-pill">
+      <div class="status-dot" id="status-dot"></div>
+      <div class="status-text" id="status-text"></div>
+      <button class="toggle-btn" id="toggle-btn"></button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="keywords"><span class="tab-icon">🔍</span><span class="tab-label">Keywords</span></div>
+    <div class="tab" data-tab="genres"><span class="tab-icon">🎬</span><span class="tab-label">Genres</span></div>
+    <div class="tab" data-tab="websites"><span class="tab-icon">🌐</span><span class="tab-label">Websites</span></div>
+    <div class="tab" data-tab="screentime"><span class="tab-icon">⏱</span><span class="tab-label">Time</span></div>
+    <div class="tab" data-tab="channels"><span class="tab-icon">📺</span><span class="tab-label">Channels</span></div>
+  </div>
+
+  <!-- ── TAB: KEYWORDS ── -->
+  <div id="tab-keywords" class="tab-body active">
+    <div class="stats-row">
+      <div class="stat-box"><div class="stat-num" id="stat-kw" style="color:var(--red)">0</div><div class="stat-lbl">Keywords</div></div>
+      <div class="stat-box"><div class="stat-num" id="stat-genres" style="color:var(--orange)">0</div><div class="stat-lbl">Genres</div></div>
+      <div class="stat-box"><div class="stat-num" id="stat-blocked-sites" style="color:var(--red)">0</div><div class="stat-lbl">Sites Blocked</div></div>
+    </div>
+
+    <div class="sec-label">Quick Add</div>
+    <div class="presets" id="presets-row"></div>
+
+    <div class="sec-label">Add Keyword to Block</div>
+    <div class="add-row">
+      <input type="text" class="add-input" id="kw-input" placeholder="e.g. violence, adult…"/>
+      <button class="add-btn" id="add-kw-btn">+ Block</button>
+    </div>
+
+    <div class="sec-label">Blocked Keywords (<span id="kw-count">0</span>)</div>
+    <div class="card-list" id="kw-list"></div>
+  </div>
+
+  <!-- ── TAB: WEBSITES ── -->
+  <div id="tab-websites" class="tab-body">
+
+    <div class="info-box">
+      <strong>Block mode:</strong> Listed sites are blocked, everything else is allowed.<br/>
+      <strong>Allow-only mode:</strong> Only listed sites can be visited — all others are blocked.
+    </div>
+
+    <!-- Mode selector -->
+    <div class="sec-label">Website Control Mode</div>
+    <div class="mode-row">
+      <button class="mode-btn" id="mode-block-btn">🚫 Block Listed Sites</button>
+      <button class="mode-btn" id="mode-allow-btn">✅ Allow Listed Only</button>
+    </div>
+
+    <!-- Add site row -->
+    <div class="sec-label">Add Website</div>
+    <div class="add-row">
+      <input type="text" class="add-input" id="site-input" placeholder="e.g. tiktok.com, facebook.com"/>
+      <button class="add-btn green" id="add-site-btn">+ Add</button>
+    </div>
+
+    <!-- Site list -->
+    <div class="sec-label">Website List (<span id="site-count">0</span>)</div>
+    <div class="card-list" id="site-list"></div>
+  </div>
+
+
+  <!-- ── TAB: GENRES ── -->
+  <div id="tab-genres" class="tab-body">
+    <div class="info-box">
+      Block entire YouTube content categories. Videos, channel pages, and feed cards matching blocked genres will be hidden or blocked.
+    </div>
+    <div class="sec-label">Block a Genre / Category</div>
+    <div class="add-row">
+      <input type="text" class="add-input" id="genre-input" placeholder="e.g. Gaming, Horror, News…"/>
+      <button class="add-btn" id="add-genre-btn">+ Block</button>
+    </div>
+    <div class="sec-label">Quick Genres</div>
+    <div class="presets" id="genre-presets"></div>
+    <div class="sec-label">Blocked Genres (<span id="genre-count">0</span>)</div>
+    <div class="card-list" id="genre-list"></div>
+  </div>
+
+
+  <!-- ── TAB: SCREEN TIME ── -->
+  <div id="tab-screentime" class="tab-body">
+    <div class="info-box" style="border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.05);color:rgba(255,220,100,.85)">
+      Set daily time limits for websites. When the limit is reached, the site is blocked automatically until midnight.
+    </div>
+
+    <div class="sec-label">Quick Add Sites</div>
+    <div class="st-presets" id="st-presets-row"></div>
+
+    <div class="sec-label">Add Website Time Limit</div>
+    <div class="st-add-row">
+      <input type="text" class="st-add-input" id="st-site-input" placeholder="e.g. youtube.com, tiktok.com"/>
+      <button class="st-add-btn" id="st-add-btn">+ Add</button>
+    </div>
+
+    <div class="sec-label">Active Limits (<span id="st-count">0</span>)</div>
+    <div id="st-list"></div>
+  </div>
+
+
+  <!-- ── TAB: CHANNELS ── -->
+  <div id="tab-channels" class="tab-body">
+
+    <div class="info-box" style="border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.05);color:rgba(150,255,180,.85)">
+      When enabled, <strong>only approved channels</strong> can be watched on YouTube. All other channels are blocked automatically.
+    </div>
+
+    <!-- Master toggle -->
+    <div class="ch-toggle-row">
+      <div class="ch-toggle-icon">📺</div>
+      <div class="ch-toggle-text">
+        <div class="ch-toggle-title">Allowed Channels Only</div>
+        <div class="ch-toggle-sub" id="ch-toggle-sub">Disabled — all channels accessible</div>
+      </div>
+      <label class="ch-switch">
+        <input type="checkbox" id="ch-enabled-toggle"/>
+        <span class="ch-slider"></span>
+      </label>
+    </div>
+
+    <!-- Quick add presets -->
+    <div class="sec-label">Educational Presets</div>
+    <div class="ch-presets" id="ch-presets-row"></div>
+
+    <!-- Add channel -->
+    <div class="sec-label">Add Channel</div>
+    <div class="add-row" style="margin-bottom:6px">
+      <input type="text" class="add-input" id="ch-input" placeholder="Channel name or youtube.com/@handle"/>
+      <button class="add-btn green" id="ch-add-btn">+ Allow</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:11px;padding-left:2px">
+      Paste a YouTube channel URL, @handle, or just the channel name
+    </div>
+
+    <!-- Allowed list -->
+    <div class="sec-label">Allowed Channels (<span id="ch-count">0</span>)</div>
+    <div class="card-list" id="ch-list"></div>
+  </div>
+
+</div><!-- /screen-main -->
+
+<div class="toast" id="toast"></div>
+<script src="popup.js"></script>
+</body>
+</html>

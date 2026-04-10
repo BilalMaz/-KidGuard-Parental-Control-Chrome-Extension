@@ -10,6 +10,8 @@ chrome.runtime.onInstalled.addListener(() => {
     if (!r.siteRules)             chrome.storage.sync.set({ siteRules: [] });
     if (!r.blockedGenres)         chrome.storage.sync.set({ blockedGenres: [] });
     if (!r.timeLimits)            chrome.storage.sync.set({ timeLimits: [] });
+    if (!r.allowedChannels)       chrome.storage.sync.set({ allowedChannels: [] });
+    if (!r.channelsEnabled)       chrome.storage.sync.set({ channelsEnabled: false });
   });
 });
 
@@ -109,6 +111,50 @@ function handleNavigation(details) {
 chrome.webNavigation.onBeforeNavigate.addListener(handleNavigation);
 chrome.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
 chrome.webNavigation.onReferenceFragmentUpdated.addListener(handleNavigation);
+
+// ═══════════════════════════════════════════════════════════════
+// CHANNEL ALLOWLIST CHECK — background intercept
+// Fires when navigating to a YouTube channel page
+// ═══════════════════════════════════════════════════════════════
+
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  if (details.frameId !== 0) return;
+  const url = details.url;
+
+  // Only channel pages: /@handle or /channel/UCxxx
+  const isChannel = url.match(/youtube\.com\/@[\w.-]+/i) || url.match(/youtube\.com\/channel\/UC[\w-]+/i);
+  if (!isChannel) return;
+
+  const { allowedChannels, channelsEnabled, enabled } = await chrome.storage.sync.get(['allowedChannels','channelsEnabled','enabled']);
+  if (!enabled || !channelsEnabled || !allowedChannels?.length) return;
+
+  // Extract channel identity from URL
+  const handleMatch = url.match(/youtube\.com\/@([\w.-]+)/i);
+  const idMatch     = url.match(/youtube\.com\/channel\/(UC[\w-]+)/i);
+
+  const ch = handleMatch
+    ? { handle: '@' + handleMatch[1].toLowerCase(), name: handleMatch[1], id: '' }
+    : idMatch
+      ? { id: idMatch[1], handle: '', name: idMatch[1] }
+      : null;
+
+  if (!ch) return;
+
+  const allowed = allowedChannels.some(function(a) {
+    if (a.id && ch.id && a.id === ch.id) return true;
+    if (a.handle && ch.handle && a.handle.toLowerCase() === ch.handle.toLowerCase()) return true;
+    if (a.name && ch.name && a.name.toLowerCase() === ch.name.toLowerCase()) return true;
+    return false;
+  });
+
+  if (!allowed) {
+    chrome.tabs.update(details.tabId, {
+      url: chrome.runtime.getURL('blocked.html') +
+           '?reason=channel' +
+           '&channel=' + encodeURIComponent(ch.name || ch.handle || 'Unknown')
+    });
+  }
+}, { url: [{ hostContains: 'youtube.com' }] });
 
 // ═══════════════════════════════════════════════════════════════
 // YOUTUBE VIDEO BLOCKING — via webNavigation + oEmbed title fetch
