@@ -102,6 +102,8 @@ Set daily time limits for YouTube or specific websites. When the limit is reache
 ### Locking the Panel
 Click the **🔒 Lock** button in the header — the popup requires the parent password to reopen.
 
+### Youtube Channel Allow 
+Manage the Youtube Channel allow and disallow
 ---
 
 ## 🛠 Technical Details
